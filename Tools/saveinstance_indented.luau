@@ -515,12 +515,23 @@ do
 	Descriptors[DescriptorName] = Descriptors[RedirectName]
 end
 
-for _, originalfuncname in { "getproperties", "getspecialinfo" } do -- * Some executors only allow certain Classes for this method (like UnionOperation, MeshPart, Terrain), for example Electron, Codex
+for _, originalfuncname in pairs({ "getproperties", "getspecialinfo" }) do
+	-- Retrieve the original function from the global container
 	local originalfunc = globalcontainer[originalfuncname]
+
+	-- If the function exists, redefine it with enhanced error handling
 	if originalfunc then
 		globalcontainer[originalfuncname] = function(instance)
-			local ok, result = pcall(originalfunc, instance)
-			return ok and result or {}
+			-- Check if the instance is valid and allowed on all executors
+			if typeof(instance) == "Instance" and (instance:IsA("UnionOperation") or instance:IsA("MeshPart") or instance:IsA("Terrain")) then
+				-- Use pcall to catch any errors in calling the function
+				local ok, result = pcall(originalfunc, instance)
+				-- Return the result if successful, or an empty table if not
+				return ok and result or {}
+			else
+				-- If the instance type isn't allowed, return an empty table
+				return {}
+			end
 		end
 	end
 end
