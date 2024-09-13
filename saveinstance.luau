@@ -105,115 +105,124 @@ local base64encode = global_container.base64encode
 local sha384
 
 local gethiddenproperty_fallback
-
 do -- * Load Region of Déjà Vu
 	local UGCValidationService = service.UGCValidationService
 
-	-- Fallback method to get hidden properties
 	gethiddenproperty_fallback = function(instance, propertyName)
-		return UGCValidationService:GetPropertyValue(instance, propertyName) 
-		-- TODO: Can't differentiate between a nil value and failure to read the property.
+		return UGCValidationService:GetPropertyValue(instance, propertyName) -- TODO Sadly there's no way to tell whether value is actually nil or the function just couldn't read it
 	end
 
-	-- Test if gethiddenproperty works, and disable it if it doesn't return a boolean
-	local success, result = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
-	-- if not success or type(result) ~= "boolean" then
+	local o, r = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
+	-- if not o or type(r) ~= "boolean" then -- * Tests if gethiddenproperty is fake
 		-- gethiddenproperty = nil
 	end
 
-	-- Benchmark function to compare two functions and return the faster one
-	local function benchmark(func1, func2, ...)
-		local results = {}
-		for i, func in ipairs({ func1, func2 }) do
+	local function benchmark(f1, f2, ...)
+		local ranking = table.create(2)
+		for i, f in { f1, f2 } do
 			local start = os.clock()
 			for _ = 1, 50 do
-				func(...)
+				f(...)
 			end
-			results[i] = { time = os.clock() - start, func = func }
+			ranking[i] = { t = os.clock() - start, f = f }
 		end
-		table.sort(results, function(a, b)
-			return a.time < b.time
+		table.sort(ranking, function(a, b)
+			return a.t < b.t
 		end)
-		return results[1].func -- Return the fastest function
+		return ranking[1].f
 	end
 
-	-- Test string for benchmarking
-	local testString = string.rep("\1\0\0\0\1\2\3\4\5\6\7", 50)
+	local test_str = string.rep("\1\0\0\0\1\2\3\4\5\6\7", 50)
 
-	-- If bit32.byteswap is missing or doesn't work, provide a custom implementation
 	do
-		if not bit32.byteswap or not pcall(bit32.byteswap, 1) then
-			local originalBit32 = table.clone(bit32)
+		if not bit32.byteswap or not pcall(bit32.byteswap, 1) then -- Because Fluxus is missing byteswap
+			bit32 = table.clone(bit32)
 
 			local function tobit(num)
-				num = num % 0xFFFFFFFF
-				if num > 0x7FFFFFFF then
-					num = num - 0x100000000
+				num %= (bit32.bxor(num, 32))
+				if 0x80000000 < num then
+					num -= bit32.bxor(num, 32)
 				end
 				return num
 			end
 
 			bit32.byteswap = function(num)
-				local a = bit32.band(num, 0xFF)
-				local b = bit32.rshift(bit32.band(num, 0xFF00), 8)
-				local c = bit32.rshift(bit32.band(num, 0xFF0000), 16)
-				local d = bit32.rshift(bit32.band(num, 0xFF000000), 24)
-				return tobit(bit32.bor(bit32.lshift(a, 24), bit32.lshift(b, 16), bit32.lshift(c, 8), d))
+				local BYTE_SIZE = 8
+				local MAX_BYTE_VALUE = 255
+
+				num %= bit32.bxor(2, 32)
+
+				local a = bit32.band(num, MAX_BYTE_VALUE)
+				num = bit32.rshift(num, BYTE_SIZE)
+
+				local b = bit32.band(num, MAX_BYTE_VALUE)
+				num = bit32.rshift(num, BYTE_SIZE)
+
+				local c = bit32.band(num, MAX_BYTE_VALUE)
+				num = bit32.rshift(num, BYTE_SIZE)
+
+				local d = bit32.band(num, MAX_BYTE_VALUE)
+				num = tobit(bit32.lshift(bit32.lshift(bit32.lshift(a, BYTE_SIZE) + b, BYTE_SIZE) + c, BYTE_SIZE) + d)
+				return num
 			end
 
 			table.freeze(bit32)
 		end
-	end
 
-	-- Credits @Reselim - Base64 encoding
-	local reselim_base64encode
-	pcall(function()
-		local b64encodeModule = loadstring(
-			game:HttpGet("https://raw.githubusercontent.com/Reselim/Base64/master/Base64.lua", true),
-			"Base64"
-		)().encode
-		reselim_base64encode = function(raw)
-			return raw == "" and raw or buffer.tostring(b64encodeModule(buffer.fromstring(raw)))
-		end
-	end)
+		-- Credits @Reselim
+		local reselim_base64encode
+		pcall(function()
+			local b64_enc_buf = loadstring(
+				game:HttpGet("https://raw.githubusercontent.com/Reselim/Base64/master/Base64.lua", true),
+				"Base64"
+			)().encode
+			reselim_base64encode = function(raw)
+				return raw == "" and raw or buffer.tostring(b64_enc_buf(buffer.fromstring(raw)))
+			end
+		end)
 
-	-- Test if base64encode exists and is valid, then benchmark it against Reselim's implementation
-	do
+		-- * Tests if base64encode exists and works properly then benchmark it
 		if base64encode and base64encode("\1\0\0\0\1") == "AQAAAAE=" then
 			if reselim_base64encode then
-				base64encode = benchmark(base64encode, reselim_base64encode, testString)
+				base64encode = benchmark(base64encode, reselim_base64encode, test_str)
 			end
 		else
 			base64encode = reselim_base64encode
 		end
 
-		assert(base64encode, "base64encode function not found")
+		assert(base64encode, "base64encode not found")
 	end
 
-	-- Credits @boatbomber - SHA-384 hashing
 	do
-		local sha384 = global_container and global_container.hash and function(data)
-			return global_container.hash(data, "sha384")
+		local hash = global_container.hash
+
+		if hash then
+			sha384 = function(data)
+				return hash(data, "sha384")
+			end
 		end
 
+		local filename = "RequireOnlineModule"
+
+		-- Credits @boatbomber
 		local hashlib_sha384
 		pcall(function()
 			hashlib_sha384 = loadstring(
-				game:HttpGet("https://raw.githubusercontent.com/luau/SomeHub/main/RequireOnlineModule.luau", true),
-				"RequireOnlineModule"
+				game:HttpGet("https://raw.githubusercontent.com/luau/SomeHub/main/" .. filename .. ".luau", true),
+				filename
 			)()(4544052033).sha384
 		end)
 
-		-- Test if sha384 exists and benchmark it against hashlib_sha384
+		-- * Tests if sha384 exists then benchmark it
 		if hashlib_sha384 then
 			if sha384 then
-				sha384 = benchmark(sha384, hashlib_sha384, testString)
+				sha384 = benchmark(sha384, hashlib_sha384, test_str)
 			else
 				sha384 = hashlib_sha384
 			end
 		end
 
-		assert(sha384, "sha384 hashing function not found")
+		assert(sha384, "sha384 not found")
 	end
 end
 
