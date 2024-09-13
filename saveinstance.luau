@@ -1,8 +1,3 @@
---!native
---!optimize 2
---!divine-intellect
--- https://discord.gg/wx4ThpAsmw
-
 local service = setmetatable({}, {
 	__index = function(self, serviceName)
 		local o, s = pcall(Instance.new, serviceName)
