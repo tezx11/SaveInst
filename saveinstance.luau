@@ -104,18 +104,18 @@ local getscriptbytecode = global_container.getscriptbytecode -- * A lot of assum
 local base64encode = global_container.base64encode
 local sha384
 
-local gethiddenproperty_fallback
+local gethiddenproperty
 do -- * Load Region of Déjà Vu
 	local UGCValidationService = service.UGCValidationService
 
-	gethiddenproperty_fallback = function(instance, propertyName)
+	gethiddenproperty = function(instance, propertyName)
 		return UGCValidationService:GetPropertyValue(instance, propertyName) -- TODO Sadly there's no way to tell whether value is actually nil or the function just couldn't read it
 	end
 
-	-- local o, r = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
-	-- if not o or type(r) ~= "boolean" then -- * Tests if gethiddenproperty is fake
-		-- gethiddenproperty = nil
-	-- end
+	local o, r = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
+	 if not o or type(r) ~= "boolean" then -- * Tests if gethiddenproperty is fake
+		gethiddenproperty = nil
+	end
 
 	local function benchmark(f1, f2, ...)
 		local ranking = table.create(2)
