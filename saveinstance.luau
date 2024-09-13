@@ -117,8 +117,8 @@ do -- * Load Region of Déjà Vu
 
 	-- Test if gethiddenproperty works, and disable it if it doesn't return a boolean
 	local success, result = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
-	if not success or type(result) ~= "boolean" then
-		gethiddenproperty = nil
+	-- if not success or type(result) ~= "boolean" then
+		-- gethiddenproperty = nil
 	end
 
 	-- Benchmark function to compare two functions and return the faster one
