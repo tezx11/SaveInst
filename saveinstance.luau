@@ -1,3 +1,8 @@
+--!native
+--!optimize 2
+--!divine-intellect
+-- https://discord.gg/wx4ThpAsmw
+
 local service = setmetatable({}, {
 	__index = function(self, serviceName)
 		local o, s = pcall(Instance.new, serviceName)
@@ -107,10 +112,10 @@ do -- * Load Region of Déjà Vu
 		return UGCValidationService:GetPropertyValue(instance, propertyName) -- TODO Sadly there's no way to tell whether value is actually nil or the function just couldn't read it
 	end
 
-	local o, r = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
+	-- local o, r = pcall(gethiddenproperty, workspace.Terrain, "Decoration")
 	-- if not o or type(r) ~= "boolean" then -- * Tests if gethiddenproperty is fake
 		-- gethiddenproperty = nil
-	end
+	-- end
 
 	local function benchmark(f1, f2, ...)
 		local ranking = table.create(2)
